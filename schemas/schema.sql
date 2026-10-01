@@ -10,7 +10,8 @@ create table public.watches (
   movement_type varchar not null,
   case_diameter numeric(5, 2) not null,
   description text,
-  image_path text
+  image_path text,
+  constraint watches_reference_key unique (reference)
 );
 
 create table public.inventory_lots (
@@ -34,6 +35,7 @@ revoke all on table public.profiles, public.watches, public.inventory_lots
   from public, anon, authenticated;
 
 grant select on table public.profiles, public.watches to authenticated;
+grant insert on table public.watches to authenticated;
 grant select, insert, update, delete on table public.inventory_lots to authenticated;
 
 create policy profiles_select_own
@@ -47,6 +49,19 @@ create policy watches_select_authenticated
   for select
   to authenticated
   using (true);
+
+create policy watches_insert_admin_only
+  on public.watches
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1
+      from public.profiles
+      where profiles.user_id = (select auth.uid())
+        and profiles.role = 'admin'
+    )
+  );
 
 create policy inventory_lots_admin_only
   on public.inventory_lots

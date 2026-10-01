@@ -73,6 +73,13 @@ export interface MarketingWatchDetail {
   recommendedPrice: number | null
 }
 
+export class DuplicateWatchReferenceError extends Error {
+  constructor() {
+    super('Ya existe un reloj con esa referencia.')
+    this.name = 'DuplicateWatchReferenceError'
+  }
+}
+
 function toPrice(value: number | string | null) {
   return value === null ? null : Number(value)
 }
@@ -193,4 +200,34 @@ export async function getMarketingWatchDetail(
     name: watch.name,
     recommendedPrice: toPrice(watch.recommended_price),
   }
+}
+
+export async function createWatchReference(watch: {
+  reference: string
+  name: string
+  movementType: string
+  caseDiameter: number
+}): Promise<void> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('watches')
+    .select('watch_id')
+    .eq('reference', watch.reference)
+    .maybeSingle()
+
+  if (lookupError) {
+    throw new Error(`No se pudo validar la referencia: ${lookupError.message}`)
+  }
+  if (existing) throw new DuplicateWatchReferenceError()
+
+  const { error } = await supabase.from('watches').insert({
+    reference: watch.reference,
+    commercial_name: watch.name,
+    movement_type: watch.movementType,
+    case_diameter: watch.caseDiameter,
+  })
+
+  if (error?.code === '23505') throw new DuplicateWatchReferenceError()
+  if (error) throw new Error(`No se pudo crear la referencia: ${error.message}`)
 }

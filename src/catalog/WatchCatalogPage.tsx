@@ -333,7 +333,7 @@ function formatPurchaseDate(date: string) {
   }).format(new Date(`${date}T00:00:00Z`))
 }
 
-function CatalogFrame({ children }: { children: ReactNode }) {
+export function CatalogFrame({ children }: { children: ReactNode }) {
   return (
     <main className="home-page">
       <header className="topbar">
