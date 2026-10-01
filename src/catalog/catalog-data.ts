@@ -50,10 +50,17 @@ interface AdminWatchDetailRow {
 }
 
 interface AdminWatchRecord {
+  watch_id: number
   reference: string
   commercial_name: string
   description: string | null
   image_path: string | null
+}
+
+interface WatchOptionRow {
+  watch_id: number
+  reference: string
+  commercial_name: string
 }
 
 interface MarketingWatchDetailRow {
@@ -76,10 +83,25 @@ export interface AdminWatchLot {
 }
 
 export interface AdminWatchDetail {
+  watchId: number
   reference: string
   name: string
   description: string | null
   lots: AdminWatchLot[]
+}
+
+export interface WatchOption {
+  watchId: number
+  reference: string
+  name: string
+}
+
+export interface InventoryLotInput {
+  quantity: number
+  purchaseDate: string
+  watchCost: number
+  shipping: number
+  fees: number
 }
 
 export interface MarketingWatchDetail {
@@ -183,7 +205,7 @@ export async function getAdminWatchDetail(
 
   const { data: watchData, error: watchError } = await supabase
     .from('watches')
-    .select('reference, commercial_name, description, image_path')
+    .select('watch_id, reference, commercial_name, description, image_path')
     .eq('reference', reference)
     .maybeSingle()
 
@@ -206,6 +228,7 @@ export async function getAdminWatchDetail(
   const rows = (data ?? []) as unknown as AdminWatchDetailRow[]
 
   return {
+    watchId: watch.watch_id,
     reference: watch.reference,
     name: watch.commercial_name,
     description: watch.description,
@@ -244,6 +267,134 @@ export async function getMarketingWatchDetail(
     reference: watch.reference,
     name: watch.name,
     recommendedPrice: toPrice(watch.recommended_price),
+  }
+}
+
+export async function getWatchOptions(): Promise<WatchOption[]> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const { data, error } = await supabase
+    .from('watches')
+    .select('watch_id, reference, commercial_name')
+    .order('reference')
+
+  if (error) throw new Error(`No se pudieron cargar las referencias: ${error.message}`)
+
+  return (data as unknown as WatchOptionRow[]).map((watch) => ({
+    watchId: watch.watch_id,
+    reference: watch.reference,
+    name: watch.commercial_name,
+  }))
+}
+
+function validateInventoryLot(lot: InventoryLotInput) {
+  if (!Number.isInteger(lot.quantity) || lot.quantity <= 0) {
+    throw new Error('La cantidad debe ser un número entero mayor que cero.')
+  }
+  const parsedDate = new Date(`${lot.purchaseDate}T00:00:00Z`)
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(lot.purchaseDate) ||
+    Number.isNaN(parsedDate.valueOf()) ||
+    parsedDate.toISOString().slice(0, 10) !== lot.purchaseDate
+  ) {
+    throw new Error('Ingresa una fecha de compra válida.')
+  }
+  if (
+    !Number.isFinite(lot.watchCost) ||
+    !Number.isFinite(lot.shipping) ||
+    !Number.isFinite(lot.fees) ||
+    lot.watchCost < 0 ||
+    lot.shipping < 0 ||
+    lot.fees < 0
+  ) {
+    throw new Error('Los costos, el envío y los gastos no pueden ser negativos.')
+  }
+}
+
+function getLotWriteErrorMessage(message: string) {
+  if (message.includes('inventory_lots_quantity_check')) {
+    return 'La cantidad debe ser un número entero mayor que cero.'
+  }
+  if (
+    message.includes('inventory_lots_watch_cost_check') ||
+    message.includes('inventory_lots_shipping_check') ||
+    message.includes('inventory_lots_fees_check')
+  ) {
+    return 'Los costos, el envío y los gastos no pueden ser negativos.'
+  }
+  return message
+}
+
+export async function createInventoryLot(
+  watchId: number,
+  lot: InventoryLotInput,
+): Promise<void> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+  validateInventoryLot(lot)
+
+  const { error } = await supabase.from('inventory_lots').insert({
+    watch_id: watchId,
+    quantity: lot.quantity,
+    purchase_date: lot.purchaseDate,
+    watch_cost: lot.watchCost,
+    shipping: lot.shipping,
+    fees: lot.fees,
+  })
+
+  if (error) {
+    throw new Error(
+      `No se pudo guardar el lote: ${getLotWriteErrorMessage(error.message)}`,
+    )
+  }
+}
+
+export async function updateInventoryLot(
+  lotId: number,
+  lot: InventoryLotInput,
+): Promise<void> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+  validateInventoryLot(lot)
+
+  const { data, error } = await supabase
+    .from('inventory_lots')
+    .update({
+      quantity: lot.quantity,
+      purchase_date: lot.purchaseDate,
+      watch_cost: lot.watchCost,
+      shipping: lot.shipping,
+      fees: lot.fees,
+    })
+    .eq('lot_id', lotId)
+    .select('lot_id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(
+      `No se pudo actualizar el lote: ${getLotWriteErrorMessage(error.message)}`,
+    )
+  }
+  if (!data) throw new Error('No se encontró el lote o no tienes permiso para editarlo.')
+}
+
+export async function updateWatchName(
+  watchId: number,
+  name: string,
+): Promise<void> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const normalizedName = name.trim()
+  if (!normalizedName) throw new Error('El nombre de la referencia es obligatorio.')
+
+  const { data, error } = await supabase
+    .from('watches')
+    .update({ commercial_name: normalizedName })
+    .eq('watch_id', watchId)
+    .select('watch_id')
+    .maybeSingle()
+
+  if (error) throw new Error(`No se pudo actualizar el nombre: ${error.message}`)
+  if (!data) {
+    throw new Error('No se encontró la referencia o no tienes permiso para editarla.')
   }
 }
 

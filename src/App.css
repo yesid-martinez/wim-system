@@ -496,6 +496,7 @@
 }
 
 .reference-form input,
+.reference-form select,
 .reference-form textarea {
   width: 100%;
   min-height: 46px;
@@ -512,6 +513,7 @@
 }
 
 .reference-form input:focus,
+.reference-form select:focus,
 .reference-form textarea:focus {
   border-color: #577578;
   outline: 2px solid #577578;
@@ -541,6 +543,57 @@
   gap: 36px;
   padding: 18px 0;
   border-block: 1px solid #d8dfdc;
+}
+
+.watch-detail-description {
+  max-width: 60ch;
+  color: #647276;
+  line-height: 1.6;
+}
+
+.watch-name-edit-button {
+  margin-top: 12px;
+}
+
+.watch-name-form {
+  display: grid;
+  width: min(100%, 440px);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.watch-name-form label,
+.lot-edit-fields label {
+  display: grid;
+  gap: 6px;
+  color: #32474c;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.watch-name-form input,
+.lot-edit-fields input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #c8d0ce;
+  border-radius: 2px;
+  background: #fff;
+  color: #1c2b30;
+  font: inherit;
+}
+
+.watch-name-form input:focus,
+.lot-edit-fields input:focus {
+  border-color: #577578;
+  outline: 2px solid #577578;
+  outline-offset: 1px;
+}
+
+.watch-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .watch-detail-summary div {
@@ -603,6 +656,11 @@
 
 .watch-lots-table th:last-child,
 .watch-lots-table td:last-child {
+  text-align: center;
+}
+
+.watch-lots-table th:nth-last-child(2),
+.watch-lots-table td:nth-last-child(2) {
   color: #24464a;
   font-weight: 700;
 }
@@ -613,6 +671,27 @@
 
 .watch-lots-table tbody tr:hover {
   background: #f7f8f7;
+}
+
+.lot-edit-form {
+  display: grid;
+  gap: 16px;
+  padding: 8px;
+  text-align: left;
+}
+
+.lot-edit-form > p {
+  max-width: 72ch;
+  margin: 0;
+  color: #647276;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.lot-edit-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
 }
 
 .sr-only {

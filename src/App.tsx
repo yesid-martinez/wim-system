@@ -12,6 +12,7 @@ import {
 import { AuthProvider, type UserRole } from './auth/AuthContext'
 import { useAuth } from './auth/useAuth'
 import { NewWatchPage } from './catalog/NewWatchPage'
+import { NewInventoryLotPage } from './catalog/NewInventoryLotPage'
 import { WatchCatalogPage, WatchReferencePage } from './catalog/WatchCatalogPage'
 import { supabase } from './lib/supabase'
 import './App.css'
@@ -221,8 +222,8 @@ function HomePage() {
             path: '/new',
           },
           {
-            label: 'Editar referencia',
-            description: 'Actualiza una referencia existente.',
+            label: 'Ingresar lote',
+            description: 'Añade unidades a una referencia existente.',
             path: '/watches-ref-edit',
           },
         ]
@@ -303,20 +304,6 @@ function HomePage() {
   )
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <main className="status-page">
-      <section className="notice-panel">
-        <p className="notice-kicker">Módulo disponible próximamente</p>
-        <h1>{title}</h1>
-        <Link className="button button-secondary" to="/home">
-          Volver al inicio
-        </Link>
-      </section>
-    </main>
-  )
-}
-
 function UnknownRoute() {
   const { userEmail, loading } = useAuth()
 
@@ -335,10 +322,7 @@ function AppRoutes() {
       </Route>
       <Route element={<ProtectedRoute allowedRole="admin" />}>
         <Route path="/new" element={<NewWatchPage />} />
-        <Route
-          path="/watches-ref-edit"
-          element={<PlaceholderPage title="Editar referencia" />}
-        />
+        <Route path="/watches-ref-edit" element={<NewInventoryLotPage />} />
       </Route>
       <Route path="/" element={<UnknownRoute />} />
       <Route path="*" element={<UnknownRoute />} />
