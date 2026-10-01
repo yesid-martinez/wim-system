@@ -222,5 +222,5 @@ grant execute on function public.calculate_commercial_price(numeric, numeric)
 
 revoke all on public.admin_watches_view, public.marketing_watches_view
   from public, anon;
-grant select on public.admin_watches_view, public.marketing_watches_view
-  to authenticated;
+grant select on public.admin_watches_view to authenticated;
+grant select on public.marketing_watches_view to authenticated;
