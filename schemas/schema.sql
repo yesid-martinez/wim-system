@@ -157,8 +157,6 @@ select
   watches.reference,
   watches.commercial_name as name,
   coalesce(watch_inventory.available_quantity, 0) as available_quantity,
-  public.calculate_commercial_price(watch_inventory.highest_unit_cost, 50000) as minimum_price,
-  public.calculate_commercial_price(watch_inventory.highest_unit_cost, 100000) as medium_price,
   public.calculate_commercial_price(watch_inventory.highest_unit_cost, 200000) as recommended_price
 from public.watches
 left join watch_inventory using (reference)
