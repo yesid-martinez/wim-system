@@ -190,6 +190,9 @@ function AdminWatchDetailPage({ reference }: { reference: string }) {
         <p className="eyebrow">Detalle de referencia</p>
         <p className="watch-card-reference">{detail.reference}</p>
         <h1>{detail.name}</h1>
+        {detail.description && (
+          <p className="watch-detail-description">{detail.description}</p>
+        )}
       </header>
 
       <section className="watch-detail-summary" aria-label="Resumen de inventario">
@@ -204,42 +207,50 @@ function AdminWatchDetailPage({ reference }: { reference: string }) {
       </section>
 
       <section className="watch-detail-section">
-        <h2>Costos y precios sugeridos por lote</h2>
-        <div className="watch-lots-table-wrap">
-          <table className="watch-lots-table">
-            <caption className="sr-only">
-              Costos de adquisición y precios comerciales sugeridos por lote
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Fecha de compra</th>
-                <th scope="col">Cantidad</th>
-                <th scope="col">Costo del reloj</th>
-                <th scope="col">Envío</th>
-                <th scope="col">Gastos</th>
-                <th scope="col">Costo unitario</th>
-                <th scope="col">Mínimo</th>
-                <th scope="col">Medio</th>
-                <th scope="col">Recomendado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.lots.map((lot) => (
-                <tr key={lot.lotId}>
-                  <td>{formatPurchaseDate(lot.purchaseDate)}</td>
-                  <td>{lot.quantity}</td>
-                  <td>{costFormatter.format(lot.watchCost)}</td>
-                  <td>{costFormatter.format(lot.shipping)}</td>
-                  <td>{costFormatter.format(lot.fees)}</td>
-                  <td>{costFormatter.format(lot.unitCost)}</td>
-                  <td>{priceFormatter.format(lot.minimumPrice)}</td>
-                  <td>{priceFormatter.format(lot.mediumPrice)}</td>
-                  <td>{priceFormatter.format(lot.recommendedPrice)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {detail.lots.length === 0 ? (
+          <p className="catalog-status">
+            Esta referencia aún no tiene lotes de inventario.
+          </p>
+        ) : (
+          <>
+            <h2>Costos y precios sugeridos por lote</h2>
+            <div className="watch-lots-table-wrap">
+              <table className="watch-lots-table">
+                <caption className="sr-only">
+                  Costos de adquisición y precios comerciales sugeridos por lote
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Fecha de compra</th>
+                    <th scope="col">Cantidad</th>
+                    <th scope="col">Costo del reloj</th>
+                    <th scope="col">Envío</th>
+                    <th scope="col">Gastos</th>
+                    <th scope="col">Costo unitario</th>
+                    <th scope="col">Mínimo</th>
+                    <th scope="col">Medio</th>
+                    <th scope="col">Recomendado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.lots.map((lot) => (
+                    <tr key={lot.lotId}>
+                      <td>{formatPurchaseDate(lot.purchaseDate)}</td>
+                      <td>{lot.quantity}</td>
+                      <td>{costFormatter.format(lot.watchCost)}</td>
+                      <td>{costFormatter.format(lot.shipping)}</td>
+                      <td>{costFormatter.format(lot.fees)}</td>
+                      <td>{costFormatter.format(lot.unitCost)}</td>
+                      <td>{priceFormatter.format(lot.minimumPrice)}</td>
+                      <td>{priceFormatter.format(lot.mediumPrice)}</td>
+                      <td>{priceFormatter.format(lot.recommendedPrice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
 
       <DetailBackLink />

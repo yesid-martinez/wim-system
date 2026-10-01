@@ -10,6 +10,7 @@ export function NewWatchPage() {
   const navigate = useNavigate()
   const [reference, setReference] = useState('')
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [movementType, setMovementType] = useState('')
   const [caseDiameter, setCaseDiameter] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +26,7 @@ export function NewWatchPage() {
       await createWatchReference({
         reference: normalizedReference,
         name: name.trim(),
+        description: description.trim(),
         movementType: movementType.trim(),
         caseDiameter: Number(caseDiameter),
       })
@@ -70,6 +72,14 @@ export function NewWatchPage() {
             onChange={(event) => setName(event.target.value)}
             required
             value={name}
+          />
+
+          <label htmlFor="watch-description">Descripción</label>
+          <textarea
+            id="watch-description"
+            onChange={(event) => setDescription(event.target.value)}
+            rows={4}
+            value={description}
           />
 
           <label htmlFor="watch-movement">Movimiento</label>
