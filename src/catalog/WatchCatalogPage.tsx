@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import {
   updateInventoryLot,
-  updateWatchName,
+  updateWatchMetadata,
   getAdminWatchDetail,
   getAdminCatalog,
   getMarketingCatalog,
@@ -11,6 +11,7 @@ import {
   type AdminWatchDetail,
   type MarketingWatchDetail,
   type WatchCatalogItem,
+  type WatchMetadataInput,
 } from './catalog-data'
 
 const priceFormatter = new Intl.NumberFormat('es-CO', {
@@ -149,6 +150,7 @@ export function WatchReferencePage() {
 }
 
 function AdminWatchDetailPage({ reference }: { reference: string }) {
+  const navigate = useNavigate()
   const [detail, setDetail] = useState<AdminWatchDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -210,12 +212,35 @@ function AdminWatchDetailPage({ reference }: { reference: string }) {
         {detail.description && (
           <p className="watch-detail-description">{detail.description}</p>
         )}
-        <WatchNameEditor
+        <WatchMetadataEditor
           watchId={detail.watchId}
-          name={detail.name}
-          onSaved={(name) =>
-            setDetail((current) => (current ? { ...current, name } : current))
-          }
+          metadata={{
+            reference: detail.reference,
+            name: detail.name,
+            movementType: detail.movementType,
+            caseDiameter: detail.caseDiameter,
+            description: detail.description ?? '',
+          }}
+          onSaved={(metadata) => {
+            setDetail((current) =>
+              current
+                ? {
+                    ...current,
+                    reference: metadata.reference,
+                    name: metadata.name,
+                    movementType: metadata.movementType,
+                    caseDiameter: metadata.caseDiameter,
+                    description: metadata.description || null,
+                  }
+                : current,
+            )
+            if (metadata.reference !== reference) {
+              navigate(
+                `/watches-ref?id=${encodeURIComponent(metadata.reference)}`,
+                { replace: true },
+              )
+            }
+          }}
         />
       </header>
 
@@ -283,17 +308,23 @@ function AdminWatchDetailPage({ reference }: { reference: string }) {
   )
 }
 
-function WatchNameEditor({
+function WatchMetadataEditor({
   watchId,
-  name,
+  metadata,
   onSaved,
 }: {
   watchId: number
-  name: string
-  onSaved: (name: string) => void
+  metadata: WatchMetadataInput
+  onSaved: (metadata: WatchMetadataInput) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(name)
+  const [reference, setReference] = useState(metadata.reference)
+  const [name, setName] = useState(metadata.name)
+  const [movementType, setMovementType] = useState(metadata.movementType)
+  const [caseDiameter, setCaseDiameter] = useState(
+    String(metadata.caseDiameter),
+  )
+  const [description, setDescription] = useState(metadata.description)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -302,15 +333,21 @@ function WatchNameEditor({
     setError(null)
     setSaving(true)
     try {
-      const nextName = value.trim()
-      await updateWatchName(watchId, nextName)
-      onSaved(nextName)
+      const nextMetadata = {
+        reference: reference.trim(),
+        name: name.trim(),
+        movementType: movementType.trim(),
+        caseDiameter: Number(caseDiameter),
+        description: description.trim(),
+      }
+      await updateWatchMetadata(watchId, nextMetadata)
+      onSaved(nextMetadata)
       setEditing(false)
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : 'No se pudo actualizar el nombre.',
+          : 'No se pudieron actualizar los datos de la referencia.',
       )
     } finally {
       setSaving(false)
@@ -320,27 +357,64 @@ function WatchNameEditor({
   if (!editing) {
     return (
       <button
-        className="text-button watch-name-edit-button"
+        className="text-button watch-metadata-edit-button"
         onClick={() => {
-          setValue(name)
+          setReference(metadata.reference)
+          setName(metadata.name)
+          setMovementType(metadata.movementType)
+          setCaseDiameter(String(metadata.caseDiameter))
+          setDescription(metadata.description)
+          setError(null)
           setEditing(true)
         }}
         type="button"
       >
-        Editar nombre
+        Editar referencia
       </button>
     )
   }
 
   return (
-    <form className="watch-name-form" onSubmit={handleSubmit}>
-      <label htmlFor="watch-detail-name">Nombre</label>
+    <form className="watch-metadata-form" onSubmit={handleSubmit}>
+      <label htmlFor="watch-detail-reference">Referencia</label>
       <input
         autoFocus
-        id="watch-detail-name"
-        onChange={(event) => setValue(event.target.value)}
+        id="watch-detail-reference"
+        onChange={(event) => setReference(event.target.value)}
         required
-        value={value}
+        value={reference}
+      />
+      <label htmlFor="watch-detail-name">Nombre del reloj</label>
+      <input
+        id="watch-detail-name"
+        onChange={(event) => setName(event.target.value)}
+        required
+        value={name}
+      />
+      <label htmlFor="watch-detail-movement">Movimiento</label>
+      <input
+        id="watch-detail-movement"
+        onChange={(event) => setMovementType(event.target.value)}
+        required
+        value={movementType}
+      />
+      <label htmlFor="watch-detail-diameter">Diámetro de la caja (mm)</label>
+      <input
+        id="watch-detail-diameter"
+        max="999.99"
+        min="0.01"
+        onChange={(event) => setCaseDiameter(event.target.value)}
+        required
+        step="0.01"
+        type="number"
+        value={caseDiameter}
+      />
+      <label htmlFor="watch-detail-description">Descripción</label>
+      <textarea
+        id="watch-detail-description"
+        onChange={(event) => setDescription(event.target.value)}
+        rows={3}
+        value={description}
       />
       {error && (
         <p className="form-error" role="alert">
@@ -349,7 +423,7 @@ function WatchNameEditor({
       )}
       <div className="watch-edit-actions">
         <button className="button button-primary" disabled={saving} type="submit">
-          {saving ? 'Guardando…' : 'Guardar nombre'}
+          {saving ? 'Guardando…' : 'Guardar cambios'}
         </button>
         <button
           className="button button-secondary"

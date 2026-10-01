@@ -53,6 +53,8 @@ interface AdminWatchRecord {
   watch_id: number
   reference: string
   commercial_name: string
+  movement_type: string
+  case_diameter: number | string
   description: string | null
   image_path: string | null
 }
@@ -86,8 +88,18 @@ export interface AdminWatchDetail {
   watchId: number
   reference: string
   name: string
+  movementType: string
+  caseDiameter: number
   description: string | null
   lots: AdminWatchLot[]
+}
+
+export interface WatchMetadataInput {
+  reference: string
+  name: string
+  movementType: string
+  caseDiameter: number
+  description: string
 }
 
 export interface WatchOption {
@@ -205,7 +217,9 @@ export async function getAdminWatchDetail(
 
   const { data: watchData, error: watchError } = await supabase
     .from('watches')
-    .select('watch_id, reference, commercial_name, description, image_path')
+    .select(
+      'watch_id, reference, commercial_name, movement_type, case_diameter, description, image_path',
+    )
     .eq('reference', reference)
     .maybeSingle()
 
@@ -231,6 +245,8 @@ export async function getAdminWatchDetail(
     watchId: watch.watch_id,
     reference: watch.reference,
     name: watch.commercial_name,
+    movementType: watch.movement_type,
+    caseDiameter: Number(watch.case_diameter),
     description: watch.description,
     lots: rows.map((lot) => ({
       lotId: lot.lot_id,
@@ -376,23 +392,57 @@ export async function updateInventoryLot(
   if (!data) throw new Error('No se encontró el lote o no tienes permiso para editarlo.')
 }
 
-export async function updateWatchName(
+export async function updateWatchMetadata(
   watchId: number,
-  name: string,
+  metadata: WatchMetadataInput,
 ): Promise<void> {
   if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
 
-  const normalizedName = name.trim()
+  const normalizedReference = metadata.reference.trim()
+  const normalizedName = metadata.name.trim()
+  const normalizedMovement = metadata.movementType.trim()
+  const normalizedDescription = metadata.description.trim()
+
+  if (!normalizedReference) throw new Error('La referencia es obligatoria.')
   if (!normalizedName) throw new Error('El nombre de la referencia es obligatorio.')
+  if (!normalizedMovement) throw new Error('El movimiento es obligatorio.')
+  if (
+    !Number.isFinite(metadata.caseDiameter) ||
+    metadata.caseDiameter <= 0 ||
+    metadata.caseDiameter > 999.99
+  ) {
+    throw new Error('El diámetro debe ser mayor que 0 y no superar 999,99 mm.')
+  }
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('watches')
+    .select('watch_id')
+    .eq('reference', normalizedReference)
+    .neq('watch_id', watchId)
+    .maybeSingle()
+
+  if (lookupError) {
+    throw new Error(`No se pudo validar la referencia: ${lookupError.message}`)
+  }
+  if (existing) throw new DuplicateWatchReferenceError()
 
   const { data, error } = await supabase
     .from('watches')
-    .update({ commercial_name: normalizedName })
+    .update({
+      reference: normalizedReference,
+      commercial_name: normalizedName,
+      movement_type: normalizedMovement,
+      case_diameter: metadata.caseDiameter,
+      description: normalizedDescription || null,
+    })
     .eq('watch_id', watchId)
     .select('watch_id')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo actualizar el nombre: ${error.message}`)
+  if (error?.code === '23505') throw new DuplicateWatchReferenceError()
+  if (error) {
+    throw new Error(`No se pudieron actualizar los datos de la referencia: ${error.message}`)
+  }
   if (!data) {
     throw new Error('No se encontró la referencia o no tienes permiso para editarla.')
   }

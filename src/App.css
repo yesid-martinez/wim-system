@@ -551,18 +551,18 @@
   line-height: 1.6;
 }
 
-.watch-name-edit-button {
+.watch-metadata-edit-button {
   margin-top: 12px;
 }
 
-.watch-name-form {
+.watch-metadata-form {
   display: grid;
-  width: min(100%, 440px);
+  width: min(100%, 520px);
   gap: 10px;
   margin-top: 16px;
 }
 
-.watch-name-form label,
+.watch-metadata-form label,
 .lot-edit-fields label {
   display: grid;
   gap: 6px;
@@ -571,7 +571,8 @@
   font-weight: 600;
 }
 
-.watch-name-form input,
+.watch-metadata-form input,
+.watch-metadata-form textarea,
 .lot-edit-fields input {
   width: 100%;
   min-height: 42px;
@@ -583,7 +584,12 @@
   font: inherit;
 }
 
-.watch-name-form input:focus,
+.watch-metadata-form textarea {
+  resize: vertical;
+}
+
+.watch-metadata-form input:focus,
+.watch-metadata-form textarea:focus,
 .lot-edit-fields input:focus {
   border-color: #577578;
   outline: 2px solid #577578;
