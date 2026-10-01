@@ -11,6 +11,7 @@ import {
 } from 'react-router-dom'
 import { AuthProvider, type UserRole } from './auth/AuthContext'
 import { useAuth } from './auth/useAuth'
+import { WatchCatalogPage, WatchReferencePage } from './catalog/WatchCatalogPage'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -328,10 +329,8 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/home" element={<HomePage />} />
-        <Route
-          path="/watches"
-          element={<PlaceholderPage title="Catálogo" />}
-        />
+        <Route path="/watches" element={<WatchCatalogPage />} />
+        <Route path="/watches-ref" element={<WatchReferencePage />} />
       </Route>
       <Route element={<ProtectedRoute allowedRole="admin" />}>
         <Route
