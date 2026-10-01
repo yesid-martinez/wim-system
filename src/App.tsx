@@ -11,6 +11,7 @@ import {
 } from 'react-router-dom'
 import { AuthProvider, type UserRole } from './auth/AuthContext'
 import { useAuth } from './auth/useAuth'
+import { NewWatchPage } from './catalog/NewWatchPage'
 import { WatchCatalogPage, WatchReferencePage } from './catalog/WatchCatalogPage'
 import { supabase } from './lib/supabase'
 import './App.css'
@@ -333,10 +334,7 @@ function AppRoutes() {
         <Route path="/watches-ref" element={<WatchReferencePage />} />
       </Route>
       <Route element={<ProtectedRoute allowedRole="admin" />}>
-        <Route
-          path="/new"
-          element={<PlaceholderPage title="Crear referencia" />}
-        />
+        <Route path="/new" element={<NewWatchPage />} />
         <Route
           path="/watches-ref-edit"
           element={<PlaceholderPage title="Editar referencia" />}

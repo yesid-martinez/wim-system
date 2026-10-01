@@ -476,6 +476,52 @@
   margin-top: 14px;
 }
 
+.reference-form-page {
+  width: min(100%, 620px);
+}
+
+.reference-form {
+  display: grid;
+  gap: 10px;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid #d8dfdc;
+  background: #fff;
+}
+
+.reference-form label {
+  margin-top: 8px;
+  color: #32474c;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.reference-form input,
+.reference-form textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 12px;
+  border: 1px solid #c8d0ce;
+  border-radius: 2px;
+  background: #fff;
+  color: #1c2b30;
+  font: inherit;
+}
+
+.reference-form textarea {
+  resize: vertical;
+}
+
+.reference-form input:focus,
+.reference-form textarea:focus {
+  border-color: #577578;
+  outline: 2px solid #577578;
+  outline-offset: 1px;
+}
+
+.reference-form .button-primary {
+  margin-top: 14px;
+}
+
 .watch-detail {
   display: grid;
   gap: 28px;

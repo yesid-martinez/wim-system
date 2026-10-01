@@ -27,6 +27,13 @@ interface AdminWatchRow {
   recommended_price: number | string
 }
 
+interface AdminCatalogWatchRow {
+  reference: string
+  commercial_name: string
+  description: string | null
+  image_path: string | null
+}
+
 interface AdminWatchDetailRow {
   lot_id: number
   reference: string
@@ -40,6 +47,13 @@ interface AdminWatchDetailRow {
   minimum_price: number | string
   medium_price: number | string
   recommended_price: number | string
+}
+
+interface AdminWatchRecord {
+  reference: string
+  commercial_name: string
+  description: string | null
+  image_path: string | null
 }
 
 interface MarketingWatchDetailRow {
@@ -64,6 +78,7 @@ export interface AdminWatchLot {
 export interface AdminWatchDetail {
   reference: string
   name: string
+  description: string | null
   lots: AdminWatchLot[]
 }
 
@@ -71,6 +86,13 @@ export interface MarketingWatchDetail {
   reference: string
   name: string
   recommendedPrice: number | null
+}
+
+export class DuplicateWatchReferenceError extends Error {
+  constructor() {
+    super('Ya existe un reloj con esa referencia.')
+    this.name = 'DuplicateWatchReferenceError'
+  }
 }
 
 function toPrice(value: number | string | null) {
@@ -102,34 +124,53 @@ export async function getMarketingCatalog(): Promise<WatchCatalogItem[]> {
 export async function getAdminCatalog(): Promise<WatchCatalogItem[]> {
   if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
 
-  const { data, error } = await supabase
-    .from('admin_watches_view')
-    .select(
-      'reference, commercial_name, description, image_path, quantity, recommended_price',
-    )
-    .order('commercial_name')
+  const [watchesResult, lotsResult] = await Promise.all([
+    supabase
+      .from('watches')
+      .select('reference, commercial_name, description, image_path')
+      .order('commercial_name'),
+    supabase
+      .from('admin_watches_view')
+      .select('reference, commercial_name, description, image_path, quantity, recommended_price'),
+  ])
 
-  if (error) throw new Error(`No se pudo cargar el catálogo: ${error.message}`)
+  if (watchesResult.error) {
+    throw new Error(`No se pudo cargar el catálogo: ${watchesResult.error.message}`)
+  }
+  if (lotsResult.error) {
+    throw new Error(`No se pudo cargar el inventario: ${lotsResult.error.message}`)
+  }
 
+  const watches = watchesResult.data as unknown as AdminCatalogWatchRow[]
   const catalog = new Map<string, WatchCatalogItem>()
-  for (const lot of data as unknown as AdminWatchRow[]) {
+  for (const watch of watches) {
+    catalog.set(watch.reference, {
+      reference: watch.reference,
+      name: watch.commercial_name,
+      description: watch.description,
+      imagePath: watch.image_path,
+      availableQuantity: 0,
+      recommendedPrice: null,
+    })
+  }
+
+  for (const lot of lotsResult.data as unknown as AdminWatchRow[]) {
     const existing = catalog.get(lot.reference)
     const price = Number(lot.recommended_price)
 
     if (existing) {
       existing.availableQuantity += lot.quantity
       existing.recommendedPrice = Math.max(existing.recommendedPrice ?? price, price)
-      continue
+    } else {
+      catalog.set(lot.reference, {
+        reference: lot.reference,
+        name: lot.commercial_name,
+        description: lot.description,
+        imagePath: lot.image_path,
+        availableQuantity: lot.quantity,
+        recommendedPrice: price,
+      })
     }
-
-    catalog.set(lot.reference, {
-      reference: lot.reference,
-      name: lot.commercial_name,
-      description: lot.description,
-      imagePath: lot.image_path,
-      availableQuantity: lot.quantity,
-      recommendedPrice: price,
-    })
   }
 
   return [...catalog.values()]
@@ -140,6 +181,17 @@ export async function getAdminWatchDetail(
 ): Promise<AdminWatchDetail | null> {
   if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
 
+  const { data: watchData, error: watchError } = await supabase
+    .from('watches')
+    .select('reference, commercial_name, description, image_path')
+    .eq('reference', reference)
+    .maybeSingle()
+
+  if (watchError) {
+    throw new Error(`No se pudo cargar el detalle: ${watchError.message}`)
+  }
+  if (!watchData) return null
+
   const { data, error } = await supabase
     .from('admin_watches_view')
     .select(
@@ -149,14 +201,14 @@ export async function getAdminWatchDetail(
     .order('purchase_date')
 
   if (error) throw new Error(`No se pudo cargar el detalle: ${error.message}`)
-  if (!data?.length) return null
 
-  const rows = data as unknown as AdminWatchDetailRow[]
-  const firstLot = rows[0]
+  const watch = watchData as unknown as AdminWatchRecord
+  const rows = (data ?? []) as unknown as AdminWatchDetailRow[]
 
   return {
-    reference: firstLot.reference,
-    name: firstLot.commercial_name,
+    reference: watch.reference,
+    name: watch.commercial_name,
+    description: watch.description,
     lots: rows.map((lot) => ({
       lotId: lot.lot_id,
       quantity: lot.quantity,
@@ -193,4 +245,36 @@ export async function getMarketingWatchDetail(
     name: watch.name,
     recommendedPrice: toPrice(watch.recommended_price),
   }
+}
+
+export async function createWatchReference(watch: {
+  reference: string
+  name: string
+  description: string
+  movementType: string
+  caseDiameter: number
+}): Promise<void> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('watches')
+    .select('watch_id')
+    .eq('reference', watch.reference)
+    .maybeSingle()
+
+  if (lookupError) {
+    throw new Error(`No se pudo validar la referencia: ${lookupError.message}`)
+  }
+  if (existing) throw new DuplicateWatchReferenceError()
+
+  const { error } = await supabase.from('watches').insert({
+    reference: watch.reference,
+    commercial_name: watch.name,
+    description: watch.description || null,
+    movement_type: watch.movementType,
+    case_diameter: watch.caseDiameter,
+  })
+
+  if (error?.code === '23505') throw new DuplicateWatchReferenceError()
+  if (error) throw new Error(`No se pudo crear la referencia: ${error.message}`)
 }
