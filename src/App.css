@@ -476,6 +476,126 @@
   margin-top: 14px;
 }
 
+.watch-detail {
+  display: grid;
+  gap: 28px;
+}
+
+.watch-detail .catalog-heading {
+  margin-bottom: 0;
+}
+
+.watch-detail .catalog-heading h1 {
+  margin-top: 6px;
+}
+
+.watch-detail-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 36px;
+  padding: 18px 0;
+  border-block: 1px solid #d8dfdc;
+}
+
+.watch-detail-summary div {
+  display: grid;
+  gap: 4px;
+}
+
+.watch-detail-summary span,
+.marketing-watch-price span {
+  color: #647276;
+  font-size: 0.86rem;
+}
+
+.watch-detail-summary strong {
+  color: #20383e;
+  font-size: 1.2rem;
+}
+
+.watch-detail-section h2 {
+  margin: 0 0 14px;
+  color: #20383e;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.watch-lots-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d8dfdc;
+  background: #fff;
+}
+
+.watch-lots-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  color: #32474c;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.watch-lots-table th,
+.watch-lots-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e2e7e4;
+  white-space: nowrap;
+}
+
+.watch-lots-table th {
+  background: #f2f4f2;
+  color: #506165;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.watch-lots-table th:first-child,
+.watch-lots-table td:first-child {
+  text-align: left;
+}
+
+.watch-lots-table th:last-child,
+.watch-lots-table td:last-child {
+  color: #24464a;
+  font-weight: 700;
+}
+
+.watch-lots-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.watch-lots-table tbody tr:hover {
+  background: #f7f8f7;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.marketing-watch-price {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  width: fit-content;
+  padding: 20px 24px;
+  border-left: 3px solid #a47c46;
+  background: #fff;
+}
+
+.marketing-watch-price strong {
+  color: #24464a;
+  font-size: clamp(1.65rem, 5vw, 2.25rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
 @keyframes turn {
   to {
     transform: rotate(360deg);

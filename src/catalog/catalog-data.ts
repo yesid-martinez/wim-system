@@ -27,6 +27,52 @@ interface AdminWatchRow {
   recommended_price: number | string
 }
 
+interface AdminWatchDetailRow {
+  lot_id: number
+  reference: string
+  commercial_name: string
+  quantity: number
+  purchase_date: string
+  watch_cost: number | string
+  shipping: number | string
+  fees: number | string
+  unit_cost: number | string
+  minimum_price: number | string
+  medium_price: number | string
+  recommended_price: number | string
+}
+
+interface MarketingWatchDetailRow {
+  reference: string
+  name: string
+  recommended_price: number | string | null
+}
+
+export interface AdminWatchLot {
+  lotId: number
+  quantity: number
+  purchaseDate: string
+  watchCost: number
+  shipping: number
+  fees: number
+  unitCost: number
+  minimumPrice: number
+  mediumPrice: number
+  recommendedPrice: number
+}
+
+export interface AdminWatchDetail {
+  reference: string
+  name: string
+  lots: AdminWatchLot[]
+}
+
+export interface MarketingWatchDetail {
+  reference: string
+  name: string
+  recommendedPrice: number | null
+}
+
 function toPrice(value: number | string | null) {
   return value === null ? null : Number(value)
 }
@@ -87,4 +133,64 @@ export async function getAdminCatalog(): Promise<WatchCatalogItem[]> {
   }
 
   return [...catalog.values()]
+}
+
+export async function getAdminWatchDetail(
+  reference: string,
+): Promise<AdminWatchDetail | null> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const { data, error } = await supabase
+    .from('admin_watches_view')
+    .select(
+      'lot_id, reference, commercial_name, quantity, purchase_date, watch_cost, shipping, fees, unit_cost, minimum_price, medium_price, recommended_price',
+    )
+    .eq('reference', reference)
+    .order('purchase_date')
+
+  if (error) throw new Error(`No se pudo cargar el detalle: ${error.message}`)
+  if (!data?.length) return null
+
+  const rows = data as unknown as AdminWatchDetailRow[]
+  const firstLot = rows[0]
+
+  return {
+    reference: firstLot.reference,
+    name: firstLot.commercial_name,
+    lots: rows.map((lot) => ({
+      lotId: lot.lot_id,
+      quantity: lot.quantity,
+      purchaseDate: lot.purchase_date,
+      watchCost: Number(lot.watch_cost),
+      shipping: Number(lot.shipping),
+      fees: Number(lot.fees),
+      unitCost: Number(lot.unit_cost),
+      minimumPrice: Number(lot.minimum_price),
+      mediumPrice: Number(lot.medium_price),
+      recommendedPrice: Number(lot.recommended_price),
+    })),
+  }
+}
+
+export async function getMarketingWatchDetail(
+  reference: string,
+): Promise<MarketingWatchDetail | null> {
+  if (!supabase) throw new Error('Falta configurar la conexión con Supabase.')
+
+  const { data, error } = await supabase
+    .from('marketing_watches_view')
+    .select('reference, name, recommended_price')
+    .eq('reference', reference)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(`No se pudo cargar el detalle: ${error.message}`)
+  if (!data) return null
+
+  const watch = data as unknown as MarketingWatchDetailRow
+  return {
+    reference: watch.reference,
+    name: watch.name,
+    recommendedPrice: toPrice(watch.recommended_price),
+  }
 }
