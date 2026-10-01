@@ -9,7 +9,8 @@ create table public.watches (
   commercial_name varchar not null,
   movement_type varchar not null,
   case_diameter numeric(5, 2) not null,
-  description text
+  description text,
+  image_path text
 );
 
 create table public.inventory_lots (
@@ -119,7 +120,9 @@ select
   costs.unit_cost,
   public.calculate_commercial_price(costs.unit_cost, 50000) as minimum_price,
   public.calculate_commercial_price(costs.unit_cost, 100000) as medium_price,
-  public.calculate_commercial_price(costs.unit_cost, 200000) as recommended_price
+  public.calculate_commercial_price(costs.unit_cost, 200000) as recommended_price,
+  watches.description,
+  watches.image_path
 from public.inventory_lots
 join public.watches using (watch_id)
 cross join lateral (
@@ -159,7 +162,9 @@ select
   watches.reference,
   watches.commercial_name as name,
   coalesce(watch_inventory.available_quantity, 0) as available_quantity,
-  public.calculate_commercial_price(watch_inventory.highest_unit_cost, 200000) as recommended_price
+  public.calculate_commercial_price(watch_inventory.highest_unit_cost, 200000) as recommended_price,
+  watches.description,
+  watches.image_path
 from public.watches
 left join watch_inventory using (reference)
 where exists (
