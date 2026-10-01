@@ -17,11 +17,11 @@ create table public.watches (
 create table public.inventory_lots (
   lot_id integer generated always as identity primary key,
   watch_id integer not null references public.watches (watch_id),
-  quantity integer not null,
+  quantity integer not null check (quantity > 0),
   purchase_date date not null,
-  watch_cost numeric(12, 2) not null,
-  shipping numeric(12, 2) not null,
-  fees numeric(12, 2) not null
+  watch_cost numeric(12, 2) not null check (watch_cost >= 0),
+  shipping numeric(12, 2) not null check (shipping >= 0),
+  fees numeric(12, 2) not null check (fees >= 0)
 );
 
 create index watches_reference_idx on public.watches (reference);
@@ -36,6 +36,7 @@ revoke all on table public.profiles, public.watches, public.inventory_lots
 
 grant select on table public.profiles, public.watches to authenticated;
 grant insert on table public.watches to authenticated;
+grant update on table public.watches to authenticated;
 grant select, insert, update, delete on table public.inventory_lots to authenticated;
 
 create policy profiles_select_own
@@ -54,6 +55,27 @@ create policy watches_insert_admin_only
   on public.watches
   for insert
   to authenticated
+  with check (
+    exists (
+      select 1
+      from public.profiles
+      where profiles.user_id = (select auth.uid())
+        and profiles.role = 'admin'
+    )
+  );
+
+create policy watches_update_admin_only
+  on public.watches
+  for update
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.profiles
+      where profiles.user_id = (select auth.uid())
+        and profiles.role = 'admin'
+    )
+  )
   with check (
     exists (
       select 1
