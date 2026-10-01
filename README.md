@@ -1,75 +1,152 @@
-# React + TypeScript + Vite
+# Watch Inventory
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A small inventory and pricing application for managing watches, their acquisition costs, and commercial prices.
 
-Currently, two official plugins are available:
+## Core Domain
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The system manages watches by **reference** rather than as individual physical units.
 
-## React Compiler
+A watch reference identifies a specific model/style and can have multiple units in stock. Inventory is grouped into **inventory lots**, where each lot represents units of the same reference acquired together.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Watch
 
-## Expanding the ESLint configuration
+A `Watch` represents a unique product reference.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+* `id`
+* `reference`
+* `name`
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Each reference is unique and can have multiple inventory lots.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Inventory Lot
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+An `InventoryLot` represents a batch of watches acquired together.
 
+Each lot contains:
+
+* watch reference
+* quantity
+* purchase date
+* total watch cost
+* total shipping
+* total fees
+
+The cost per unit is calculated from the lot:
+
+```text
+unit cost =
+(total watch cost + shipping + fees) / quantity
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Different lots of the same watch reference may therefore have different unit costs.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Inventory
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Available quantity is calculated from the inventory lots belonging to a watch:
 
+```text
+available quantity =
+SUM(inventory lot quantities)
 ```
+
+The quantity is not stored separately on the watch.
+
+## Pricing
+
+Pricing is based on a target profit rather than a markup percentage.
+
+The partner receives 15% of the profit, leaving 85% for the owner.
+
+```text
+price =
+unit cost + (target profit / 0.85)
+```
+
+Current target-profit levels:
+
+| Level       | Target Profit |
+| ----------- | ------------: |
+| Minimum     |    50,000 COP |
+| Medium      |   100,000 COP |
+| Recommended |   200,000 COP |
+
+Commercial prices are rounded **up to the nearest 5,000 COP**.
+
+For example:
+
+```text
+Unit cost:       200,000 COP
+Target profit:   100,000 COP
+
+Calculated price:
+200,000 + (100,000 / 0.85)
+= 317,647 COP
+
+Commercial price:
+320,000 COP
+```
+
+Prices are derived from the inventory lot's unit cost.
+
+## Roles
+
+The application has two roles:
+
+### Admin
+
+Administrators can manage inventory and access acquisition information, including:
+
+* purchase dates
+* watch costs
+* shipping
+* fees
+* unit costs
+* inventory lots
+* commercial prices
+
+### Marketing
+
+Marketing users can access commercial inventory information, including:
+
+* reference
+* name
+* available quantity
+* sale prices
+
+Marketing users must not have access to acquisition costs.
+
+## Current Scope
+
+The current MVP focuses on:
+
+* managing watch references
+* adding inventory through lots
+* viewing available inventory
+* calculating acquisition costs
+* calculating commercial prices
+* separating admin and marketing access
+
+The following are intentionally outside the current MVP:
+
+* sales
+* customers
+* orders
+* suppliers
+* stock movements
+* sales history
+* reports
+* images
+* multiple currencies
+* complex role management
+
+The application currently uses **COP** as its currency.
+
+## Domain Principles
+
+* A watch reference is a product model, not an individual physical watch.
+* One reference can have multiple inventory lots.
+* Inventory lots can have different acquisition costs.
+* Shipping and fees belong to the corresponding inventory lot.
+* Derived values should not be unnecessarily duplicated as editable data.
+* Acquisition costs are sensitive information and must be protected from marketing users.
+* The database is responsible for enforcing access restrictions.
