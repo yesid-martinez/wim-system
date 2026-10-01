@@ -78,6 +78,7 @@ returns numeric
 language plpgsql
 immutable
 strict
+set search_path = ''
 as $$
 begin
   if p_quantity <= 0 then
@@ -97,8 +98,9 @@ returns numeric
 language sql
 immutable
 strict
+set search_path = ''
 as $$
-  select ceil((p_unit_cost + p_target_profit / 0.85) / 5000) * 5000;
+  select pg_catalog.ceil((p_unit_cost + p_target_profit / 0.85) / 5000) * 5000;
 $$;
 
 create view public.admin_watches_view
