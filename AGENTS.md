@@ -399,3 +399,37 @@ When a task can be split into independent steps, recommend splitting it.
 Do not optimize for completing the largest amount of functionality in one PR.
 
 Optimize for completing one clearly defined piece of functionality correctly.
+
+If the task is too large, recommend splitting it instead of producing a large PR.
+
+---
+
+## Agent Behavior
+
+The agent should optimize for:
+
+1. Smallest correct change.
+2. Clear separation of responsibilities.
+3. Easy human review.
+4. Minimal file modifications.
+5. Explicit validation.
+6. Reversible changes.
+7. Consistency with existing repository patterns.
+
+When two implementations are both valid, prefer the simpler implementation with fewer moving parts.
+
+When a task can be completed with 20 changed lines instead of 200, prefer the smaller change.
+
+When a task can be split into independent steps, recommend splitting it.
+
+Do not optimize for completing the largest amount of functionality in one PR.
+
+Optimize for completing one clearly defined piece of functionality correctly.
+
+---
+
+## Database Schema and Permissions
+
+If a task requires changes to the database schema or permissions, apply those changes only in `/supabase/schemas/schema.sql`.
+
+It is strictly prohibited to modify any file under `/supabase/migrations/*`.
