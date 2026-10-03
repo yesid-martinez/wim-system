@@ -141,69 +141,132 @@ as $$
   select pg_catalog.ceil((p_unit_cost + p_target_profit / 0.85) / 5000) * 5000;
 $$;
 
-create view public.admin_watches_view
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+grant usage on schema private to authenticated;
+
+create function private.get_watches_metrics()
+returns table (
+  watch_id integer,
+  lot_id integer,
+  available_quantity bigint,
+  quantity integer,
+  purchase_date date,
+  unit_cost numeric,
+  minimum_price numeric,
+  medium_price numeric,
+  recommended_price numeric
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  caller_role text;
+begin
+  select profiles.role
+  into caller_role
+  from public.profiles
+  where profiles.user_id = (select auth.uid());
+
+  if caller_role is null or caller_role not in ('admin', 'marketing') then
+    raise exception 'Not authorized to read watch metrics'
+      using errcode = '42501';
+  end if;
+
+  if caller_role = 'marketing' then
+    return query
+    with lot_costs as (
+      select
+        inventory_lots.watch_id,
+        inventory_lots.quantity,
+        public.calculate_unit_cost(
+          inventory_lots.watch_cost,
+          inventory_lots.shipping,
+          inventory_lots.fees,
+          inventory_lots.quantity
+        ) as unit_cost
+      from public.inventory_lots
+    ),
+    watch_inventory as (
+      select
+        lot_costs.watch_id,
+        sum(lot_costs.quantity)::bigint as available_quantity,
+        max(lot_costs.unit_cost) as highest_unit_cost
+      from lot_costs
+      group by lot_costs.watch_id
+    )
+    select
+      watches.watch_id,
+      null::integer as lot_id,
+      coalesce(watch_inventory.available_quantity, 0)::bigint as available_quantity,
+      null::integer as quantity,
+      null::date as purchase_date,
+      null::numeric as unit_cost,
+      null::numeric as minimum_price,
+      null::numeric as medium_price,
+      public.calculate_commercial_price(watch_inventory.highest_unit_cost, 200000) as recommended_price
+    from public.watches
+    left join watch_inventory using (watch_id);
+  else
+    return query
+    select
+      inventory_lots.watch_id,
+      inventory_lots.lot_id,
+      null::bigint as available_quantity,
+      inventory_lots.quantity,
+      inventory_lots.purchase_date,
+      costs.unit_cost,
+      public.calculate_commercial_price(costs.unit_cost, 50000) as minimum_price,
+      public.calculate_commercial_price(costs.unit_cost, 100000) as medium_price,
+      public.calculate_commercial_price(costs.unit_cost, 200000) as recommended_price
+    from public.inventory_lots
+    cross join lateral (
+      select public.calculate_unit_cost(
+        inventory_lots.watch_cost,
+        inventory_lots.shipping,
+        inventory_lots.fees,
+        inventory_lots.quantity
+      ) as unit_cost
+    ) as costs;
+  end if;
+end;
+$$;
+
+revoke all on function private.get_watches_metrics() from public, anon;
+grant execute on function private.get_watches_metrics() to authenticated;
+
+drop view if exists public.admin_watches_view;
+drop view if exists public.marketing_watches_view;
+
+create view public.shared_watches_metrics_view
 with (security_invoker = true)
 as
 select
-  inventory_lots.lot_id,
-  watches.watch_id,
-  watches.reference,
-  watches.commercial_name,
-  inventory_lots.quantity,
-  inventory_lots.purchase_date,
-  inventory_lots.watch_cost,
-  inventory_lots.shipping,
-  inventory_lots.fees,
-  costs.unit_cost,
-  public.calculate_commercial_price(costs.unit_cost, 50000) as minimum_price,
-  public.calculate_commercial_price(costs.unit_cost, 100000) as medium_price,
-  public.calculate_commercial_price(costs.unit_cost, 200000) as recommended_price,
-  watches.description,
-  watches.image_path
-from public.inventory_lots
-join public.watches using (watch_id)
-cross join lateral (
-  select public.calculate_unit_cost(
-    inventory_lots.watch_cost,
-    inventory_lots.shipping,
-    inventory_lots.fees,
-    inventory_lots.quantity
-  ) as unit_cost
-) as costs;
+  metrics.watch_id,
+  metrics.lot_id,
+  metrics.available_quantity,
+  metrics.quantity,
+  metrics.purchase_date,
+  metrics.unit_cost,
+  metrics.minimum_price,
+  metrics.medium_price,
+  metrics.recommended_price
+from private.get_watches_metrics() as metrics;
 
 create view public.marketing_watches_view
-with (security_barrier = true, security_invoker = false)
+with (security_barrier = true, security_invoker = true)
 as
-with lot_costs as (
-  select
-    watches.reference,
-    inventory_lots.quantity,
-    public.calculate_unit_cost(
-      inventory_lots.watch_cost,
-      inventory_lots.shipping,
-      inventory_lots.fees,
-      inventory_lots.quantity
-    ) as unit_cost
-  from public.inventory_lots
-  join public.watches using (watch_id)
-),
-watch_inventory as (
-  select
-    lot_costs.reference,
-    sum(lot_costs.quantity)::bigint as available_quantity,
-    max(lot_costs.unit_cost) as highest_unit_cost
-  from lot_costs
-  group by lot_costs.reference
-)
 select
   watches.reference,
   watches.commercial_name as name,
-  coalesce(watch_inventory.available_quantity, 0) as available_quantity,
-  public.calculate_commercial_price(watch_inventory.highest_unit_cost, 200000) as recommended_price,
+  metrics.available_quantity,
+  metrics.recommended_price,
   watches.description,
   watches.image_path
 from public.watches
-left join watch_inventory using (reference)
+join public.shared_watches_metrics_view as metrics using (watch_id)
 where exists (
   select 1
   from public.profiles
@@ -220,7 +283,7 @@ grant execute on function public.calculate_unit_cost(numeric, numeric, numeric, 
 grant execute on function public.calculate_commercial_price(numeric, numeric)
   to authenticated;
 
-revoke all on public.admin_watches_view, public.marketing_watches_view
+revoke all on public.shared_watches_metrics_view, public.marketing_watches_view
   from public, anon;
-grant select on public.admin_watches_view to authenticated;
+grant select on public.shared_watches_metrics_view to authenticated;
 grant select on public.marketing_watches_view to authenticated;

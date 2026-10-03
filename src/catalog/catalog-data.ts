@@ -19,15 +19,13 @@ interface MarketingWatchRow {
 }
 
 interface AdminWatchRow {
-  reference: string
-  commercial_name: string
-  description: string | null
-  image_path: string | null
-  quantity: number
-  recommended_price: number | string
+  watch_id: number
+  quantity: number | null
+  recommended_price: number | string | null
 }
 
 interface AdminCatalogWatchRow {
+  watch_id: number
   reference: string
   commercial_name: string
   description: string | null
@@ -36,17 +34,19 @@ interface AdminCatalogWatchRow {
 
 interface AdminWatchDetailRow {
   lot_id: number
-  reference: string
-  commercial_name: string
+  unit_cost: number | string | null
+  minimum_price: number | string | null
+  medium_price: number | string | null
+  recommended_price: number | string | null
+}
+
+interface InventoryLotRow {
+  lot_id: number
   quantity: number
   purchase_date: string
   watch_cost: number | string
   shipping: number | string
   fees: number | string
-  unit_cost: number | string
-  minimum_price: number | string
-  medium_price: number | string
-  recommended_price: number | string
 }
 
 interface AdminWatchRecord {
@@ -161,11 +161,11 @@ export async function getAdminCatalog(): Promise<WatchCatalogItem[]> {
   const [watchesResult, lotsResult] = await Promise.all([
     supabase
       .from('watches')
-      .select('reference, commercial_name, description, image_path')
+      .select('watch_id, reference, commercial_name, description, image_path')
       .order('commercial_name'),
     supabase
-      .from('admin_watches_view')
-      .select('reference, commercial_name, description, image_path, quantity, recommended_price'),
+      .from('shared_watches_metrics_view')
+      .select('watch_id, quantity, recommended_price'),
   ])
 
   if (watchesResult.error) {
@@ -177,7 +177,9 @@ export async function getAdminCatalog(): Promise<WatchCatalogItem[]> {
 
   const watches = watchesResult.data as unknown as AdminCatalogWatchRow[]
   const catalog = new Map<string, WatchCatalogItem>()
+  const referencesByWatchId = new Map<number, string>()
   for (const watch of watches) {
+    referencesByWatchId.set(watch.watch_id, watch.reference)
     catalog.set(watch.reference, {
       reference: watch.reference,
       name: watch.commercial_name,
@@ -189,22 +191,18 @@ export async function getAdminCatalog(): Promise<WatchCatalogItem[]> {
   }
 
   for (const lot of lotsResult.data as unknown as AdminWatchRow[]) {
-    const existing = catalog.get(lot.reference)
+    const reference = referencesByWatchId.get(lot.watch_id)
+    const existing = reference ? catalog.get(reference) : undefined
+    if (!existing) {
+      throw new Error('No se encontró el reloj asociado a una métrica de inventario.')
+    }
+    if (lot.quantity === null || lot.recommended_price === null) {
+      throw new Error('La vista de métricas devolvió datos incompletos para Admin.')
+    }
     const price = Number(lot.recommended_price)
 
-    if (existing) {
-      existing.availableQuantity += lot.quantity
-      existing.recommendedPrice = Math.max(existing.recommendedPrice ?? price, price)
-    } else {
-      catalog.set(lot.reference, {
-        reference: lot.reference,
-        name: lot.commercial_name,
-        description: lot.description,
-        imagePath: lot.image_path,
-        availableQuantity: lot.quantity,
-        recommendedPrice: price,
-      })
-    }
+    existing.availableQuantity += lot.quantity
+    existing.recommendedPrice = Math.max(existing.recommendedPrice ?? price, price)
   }
 
   return [...catalog.values()]
@@ -228,18 +226,31 @@ export async function getAdminWatchDetail(
   }
   if (!watchData) return null
 
-  const { data, error } = await supabase
-    .from('admin_watches_view')
-    .select(
-      'lot_id, reference, commercial_name, quantity, purchase_date, watch_cost, shipping, fees, unit_cost, minimum_price, medium_price, recommended_price',
-    )
-    .eq('reference', reference)
-    .order('purchase_date')
-
-  if (error) throw new Error(`No se pudo cargar el detalle: ${error.message}`)
+  const [lotsResult, metricsResult] = await Promise.all([
+    supabase
+      .from('inventory_lots')
+      .select('lot_id, quantity, purchase_date, watch_cost, shipping, fees')
+      .eq('watch_id', watchData.watch_id)
+      .order('purchase_date'),
+    supabase
+      .from('shared_watches_metrics_view')
+      .select('lot_id, unit_cost, minimum_price, medium_price, recommended_price')
+      .eq('watch_id', watchData.watch_id)
+      .order('lot_id'),
+  ])
+  if (lotsResult.error) {
+    throw new Error(`No se pudo cargar el inventario: ${lotsResult.error.message}`)
+  }
+  if (metricsResult.error) {
+    throw new Error(`No se pudieron cargar las métricas: ${metricsResult.error.message}`)
+  }
 
   const watch = watchData as unknown as AdminWatchRecord
-  const rows = (data ?? []) as unknown as AdminWatchDetailRow[]
+  const lots = (lotsResult.data ?? []) as unknown as InventoryLotRow[]
+  const metricsByLotId = new Map<number, AdminWatchDetailRow>()
+  for (const metrics of (metricsResult.data ?? []) as unknown as AdminWatchDetailRow[]) {
+    metricsByLotId.set(metrics.lot_id, metrics)
+  }
 
   return {
     watchId: watch.watch_id,
@@ -248,18 +259,31 @@ export async function getAdminWatchDetail(
     movementType: watch.movement_type,
     caseDiameter: Number(watch.case_diameter),
     description: watch.description,
-    lots: rows.map((lot) => ({
-      lotId: lot.lot_id,
-      quantity: lot.quantity,
-      purchaseDate: lot.purchase_date,
-      watchCost: Number(lot.watch_cost),
-      shipping: Number(lot.shipping),
-      fees: Number(lot.fees),
-      unitCost: Number(lot.unit_cost),
-      minimumPrice: Number(lot.minimum_price),
-      mediumPrice: Number(lot.medium_price),
-      recommendedPrice: Number(lot.recommended_price),
-    })),
+    lots: lots.map((lot) => {
+      const metrics = metricsByLotId.get(lot.lot_id)
+      if (
+        !metrics ||
+        metrics.unit_cost === null ||
+        metrics.minimum_price === null ||
+        metrics.medium_price === null ||
+        metrics.recommended_price === null
+      ) {
+        throw new Error('No se encontraron métricas completas para un lote de inventario.')
+      }
+
+      return {
+        lotId: lot.lot_id,
+        quantity: lot.quantity,
+        purchaseDate: lot.purchase_date,
+        watchCost: Number(lot.watch_cost),
+        shipping: Number(lot.shipping),
+        fees: Number(lot.fees),
+        unitCost: Number(metrics.unit_cost),
+        minimumPrice: Number(metrics.minimum_price),
+        mediumPrice: Number(metrics.medium_price),
+        recommendedPrice: Number(metrics.recommended_price),
+      }
+    }),
   }
 }
 
